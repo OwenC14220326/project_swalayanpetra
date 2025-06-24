@@ -17,8 +17,8 @@ class EditUserPage extends StatefulWidget {
 
 class _EditUserPageState extends State<EditUserPage> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _namaController;
-  late TextEditingController _emailController;
+  final _namaController = TextEditingController();
+  final _emailController = TextEditingController();
 
   String _roleTerpilih = 'user';
   final List<String> _daftarRole = ['admin', 'kasir', 'user'];
@@ -28,58 +28,33 @@ class _EditUserPageState extends State<EditUserPage> {
   @override
   void initState() {
     super.initState();
-    final data = widget.userData;
-    _namaController = TextEditingController(text: data['nama_lengkap']);
-    _emailController = TextEditingController(text: data['email']);
-    _roleTerpilih = data['role'] ?? 'user';
+    _namaController.text = widget.userData['nama_lengkap'] ?? '';
+    _emailController.text = widget.userData['email'] ?? '';
+    _roleTerpilih = widget.userData['role'] ?? 'user';
   }
 
-  Future<void> _konfirmasiUpdate() async {
+  Future<void> _simpanPerubahan() async {
     if (!_formKey.currentState!.validate()) return;
 
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Konfirmasi Perubahan'),
-        content: Text(
-          'Simpan perubahan pada user ini?\n\n'
-          'Nama: ${_namaController.text}\n'
-          'Email: ${_emailController.text}\n'
-          'Role: $_roleTerpilih',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _updateUser();
-            },
-            child: const Text('Ya, Simpan'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _updateUser() async {
     setState(() => _isLoading = true);
     try {
-      await FirebaseFirestore.instance.collection('users').doc(widget.docId).update({
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.docId)
+          .update({
         'nama_lengkap': _namaController.text.trim(),
         'email': _emailController.text.trim(),
         'role': _roleTerpilih,
+        'updated_at': FieldValue.serverTimestamp(),
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User berhasil diperbarui')),
+        const SnackBar(content: Text('Perubahan berhasil disimpan')),
       );
       Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal memperbarui: $e')),
+        SnackBar(content: Text('Gagal menyimpan perubahan: $e')),
       );
     } finally {
       setState(() => _isLoading = false);
@@ -96,29 +71,42 @@ class _EditUserPageState extends State<EditUserPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Pengguna')),
-      body: Padding(
+      backgroundColor: const Color(0xFFF2F4F8),
+      appBar: AppBar(
+        title: const Text('Edit Pengguna'),
+        backgroundColor: Colors.deepOrange,
+        foregroundColor: Colors.white,
+      ),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: Column(
             children: [
-              TextFormField(
+              _buildField(
                 controller: _namaController,
-                decoration: const InputDecoration(labelText: 'Nama Lengkap'),
-                validator: (val) =>
-                    val == null || val.isEmpty ? 'Nama tidak boleh kosong' : null,
+                label: 'Nama Lengkap',
+                icon: Icons.person,
               ),
               const SizedBox(height: 12),
-              TextFormField(
+              _buildField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
+                label: 'Email',
+                icon: Icons.email,
+                keyboardType: TextInputType.emailAddress,
                 validator: (val) =>
                     val == null || !val.contains('@') ? 'Email tidak valid' : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: _roleTerpilih,
+                decoration: InputDecoration(
+                  labelText: 'Role',
+                  prefixIcon: const Icon(Icons.verified_user),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
                 items: _daftarRole.map((role) {
                   return DropdownMenuItem(
                     value: role,
@@ -128,19 +116,52 @@ class _EditUserPageState extends State<EditUserPage> {
                 onChanged: (val) {
                   if (val != null) setState(() => _roleTerpilih = val);
                 },
-                decoration: const InputDecoration(labelText: 'Role'),
               ),
               const SizedBox(height: 24),
               _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton.icon(
-                      onPressed: _konfirmasiUpdate,
-                      icon: const Icon(Icons.save),
-                      label: const Text('Simpan Perubahan'),
+                  ? const CircularProgressIndicator()
+                  : SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _simpanPerubahan,
+                        icon: const Icon(Icons.save),
+                        label: const Text('Simpan Perubahan'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: Colors.deepOrange,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          textStyle: const TextStyle(fontSize: 16),
+                        ),
+                      ),
                     ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      validator: validator ??
+          (val) => val == null || val.isEmpty ? '$label tidak boleh kosong' : null,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: Colors.white,
       ),
     );
   }

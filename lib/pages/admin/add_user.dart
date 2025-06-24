@@ -31,7 +31,7 @@ class _AddUserPageState extends State<AddUserPage> {
       return;
     }
 
-    showDialog(
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Konfirmasi'),
@@ -43,31 +43,29 @@ class _AddUserPageState extends State<AddUserPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Batal'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _simpanUser();
-            },
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Ya, Simpan'),
           ),
         ],
       ),
     );
+
+    if (confirmed != true) return;
+    _simpanUser();
   }
 
   Future<void> _simpanUser() async {
     setState(() => _isLoading = true);
     try {
-      // 1. Buat user di Firebase Auth
-      UserCredential cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // 2. Simpan data ke Firestore
       await FirebaseFirestore.instance.collection('users').doc(cred.user!.uid).set({
         'nama_lengkap': _namaController.text.trim(),
         'email': _emailController.text.trim(),
@@ -108,41 +106,45 @@ class _AddUserPageState extends State<AddUserPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Tambah User')),
-      body: Padding(
+      backgroundColor: const Color(0xFFF2F4F8),
+      appBar: AppBar(
+        title: const Text('Tambah Pengguna'),
+        backgroundColor: Colors.deepOrange,
+        foregroundColor: Colors.white,
+      ),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: Column(
             children: [
-              TextFormField(
+              _buildField(
                 controller: _namaController,
-                decoration: const InputDecoration(labelText: 'Nama Lengkap'),
-                validator: (val) =>
-                    val == null || val.isEmpty ? 'Nama tidak boleh kosong' : null,
+                label: 'Nama Lengkap',
+                icon: Icons.person,
               ),
               const SizedBox(height: 12),
-              TextFormField(
+              _buildField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                validator: (val) =>
-                    val == null || !val.contains('@') ? 'Email tidak valid' : null,
+                label: 'Email',
+                icon: Icons.email,
+                keyboardType: TextInputType.emailAddress,
+                validator: (val) => val == null || !val.contains('@') ? 'Email tidak valid' : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
+              _buildField(
                 controller: _passwordController,
+                label: 'Password',
+                icon: Icons.lock,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password'),
-                validator: (val) =>
-                    val == null || val.length < 6 ? 'Minimal 6 karakter' : null,
+                validator: (val) => val == null || val.length < 6 ? 'Minimal 6 karakter' : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
+              _buildField(
                 controller: _confirmPasswordController,
+                label: 'Konfirmasi Password',
+                icon: Icons.lock_outline,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Konfirmasi Password'),
-                validator: (val) =>
-                    val == null || val.isEmpty ? 'Konfirmasi password wajib' : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -153,22 +155,62 @@ class _AddUserPageState extends State<AddUserPage> {
                     child: Text(role.toUpperCase()),
                   );
                 }).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _roleTerpilih = val);
-                },
-                decoration: const InputDecoration(labelText: 'Role'),
+                onChanged: (val) => setState(() => _roleTerpilih = val!),
+                decoration: InputDecoration(
+                  labelText: 'Role',
+                  prefixIcon: const Icon(Icons.verified_user),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
               ),
               const SizedBox(height: 24),
               _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton.icon(
-                      onPressed: _konfirmasiTambahUser,
-                      icon: const Icon(Icons.save),
-                      label: const Text('Simpan User'),
+                  ? const CircularProgressIndicator()
+                  : SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _konfirmasiTambahUser,
+                        icon: const Icon(Icons.save),
+                        label: const Text('Simpan User'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepOrange,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          textStyle: const TextStyle(fontSize: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
                     ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool obscureText = false,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      validator: validator ??
+          (val) => val == null || val.isEmpty ? '$label tidak boleh kosong' : null,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: Colors.white,
       ),
     );
   }

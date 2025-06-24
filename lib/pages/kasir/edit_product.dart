@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class EditProductPage extends StatefulWidget {
   final String docId;
@@ -18,17 +19,17 @@ class EditProductPage extends StatefulWidget {
 class _EditProductPageState extends State<EditProductPage> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _namaController;
-  late TextEditingController _kodeSeriController;
   late TextEditingController _deskripsiController;
   late TextEditingController _hargaController;
   late TextEditingController _stokController;
   late TextEditingController _fotoController;
+  late TextEditingController _kodeSeriController;
 
   String _kategoriTerpilih = '';
   final List<String> _kategoriList = [
     'Makanan dan Minuman',
-    'Produk Rumah Tangga',
-    'Produk Kecantikan',
+    'Kebersihan',
+    'Kecantikan',
     'Alat Tulis',
     'Kesehatan',
   ];
@@ -38,10 +39,9 @@ class _EditProductPageState extends State<EditProductPage> {
   @override
   void initState() {
     super.initState();
-
     final data = widget.productData;
+
     _namaController = TextEditingController(text: data['nama_product']);
-    _kodeSeriController = TextEditingController(text: data['kode_seri']);
     _deskripsiController = TextEditingController(
       text: data['deskripsi_product'],
     );
@@ -52,11 +52,48 @@ class _EditProductPageState extends State<EditProductPage> {
     _stokController = TextEditingController(
       text: data['stok_product'].toString(),
     );
-    _kategoriTerpilih = data['kategori_product'] ?? _kategoriList[0];
+    _kodeSeriController = TextEditingController(text: data['kode_seri']);
+    _kategoriTerpilih = data['kategori_product'] ?? _kategoriList.first;
+  }
+
+  @override
+  void dispose() {
+    _namaController.dispose();
+    _deskripsiController.dispose();
+    _hargaController.dispose();
+    _stokController.dispose();
+    _fotoController.dispose();
+    _kodeSeriController.dispose();
+    super.dispose();
   }
 
   Future<void> _updateProduct() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: const Text('Konfirmasi'),
+            content: const Text('Yakin ingin menyimpan perubahan produk ini?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[900],
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Ya, Simpan'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm != true) return;
 
     setState(() => _isLoading = true);
     try {
@@ -65,11 +102,11 @@ class _EditProductPageState extends State<EditProductPage> {
           .doc(widget.docId)
           .update({
             'nama_product': _namaController.text.trim(),
-            'kode_seri': _kodeSeriController.text.trim(),
             'deskripsi_product': _deskripsiController.text.trim(),
             'foto_product': _fotoController.text.trim(),
             'harga_product': double.parse(_hargaController.text),
             'stok_product': int.parse(_stokController.text),
+            'kode_seri': _kodeSeriController.text.trim(),
             'kategori_product': _kategoriTerpilih,
             'updated_at': FieldValue.serverTimestamp(),
           });
@@ -81,100 +118,49 @@ class _EditProductPageState extends State<EditProductPage> {
     } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Gagal memperbarui: $e')));
+      ).showSnackBar(SnackBar(content: Text('Gagal memperbarui produk: $e')));
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _konfirmasiUpdate() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    showDialog(
-      context: context,
-      builder:
-          (_) => AlertDialog(
-            title: const Text('Konfirmasi'),
-            content: const Text(
-              'Apakah kamu yakin ingin menyimpan perubahan produk ini?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Batal'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context); // tutup dialog
-                  _updateProduct();
-                },
-                child: const Text('Ya, Simpan'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _namaController.dispose();
-    _kodeSeriController.dispose();
-    _deskripsiController.dispose();
-    _hargaController.dispose();
-    _stokController.dispose();
-    _fotoController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Produk')),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
+      appBar: AppBar(
+        title: const Text('Edit Produk'),
+        backgroundColor: Colors.blue[800],
+        foregroundColor: Colors.white,
+      ),
+      backgroundColor: const Color(0xFFF2F4F8),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
-          child: ListView(
+          child: Column(
             children: [
-              TextFormField(
-                controller: _namaController,
-                decoration: const InputDecoration(labelText: 'Nama Produk'),
-                validator:
-                    (value) =>
-                        value == null || value.isEmpty
-                            ? 'Nama tidak boleh kosong'
-                            : null,
-              ),
+              _buildTextField(_namaController, 'Nama Produk', Icons.label),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _kodeSeriController,
-                decoration: const InputDecoration(
-                  labelText: 'Kode Seri Produk',
-                ),
-                validator:
-                    (value) =>
-                        value == null || value.isEmpty
-                            ? 'Kode seri wajib diisi'
-                            : null,
-              ),
+              _buildTextField(_kodeSeriController, 'Kode Seri', Icons.qr_code),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _deskripsiController,
-                decoration: const InputDecoration(labelText: 'Deskripsi'),
+              _buildTextField(
+                _deskripsiController,
+                'Deskripsi',
+                Icons.description,
                 maxLines: 3,
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _fotoController,
-                decoration: const InputDecoration(
-                  labelText: 'Link Foto Produk (URL)',
-                ),
+              _buildTextField(
+                _fotoController,
+                'Link Foto (URL)',
+                Icons.image,
                 keyboardType: TextInputType.url,
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _hargaController,
-                decoration: const InputDecoration(labelText: 'Harga'),
+              _buildTextField(
+                _hargaController,
+                'Harga',
+                Icons.attach_money,
                 keyboardType: TextInputType.number,
                 validator:
                     (value) =>
@@ -183,9 +169,10 @@ class _EditProductPageState extends State<EditProductPage> {
                             : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _stokController,
-                decoration: const InputDecoration(labelText: 'Stok'),
+              _buildTextField(
+                _stokController,
+                'Stok',
+                Icons.inventory,
                 keyboardType: TextInputType.number,
                 validator:
                     (value) =>
@@ -196,6 +183,15 @@ class _EditProductPageState extends State<EditProductPage> {
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: _kategoriTerpilih,
+                decoration: InputDecoration(
+                  labelText: 'Kategori',
+                  prefixIcon: const Icon(Icons.category),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
                 items:
                     _kategoriList
                         .map(
@@ -205,23 +201,61 @@ class _EditProductPageState extends State<EditProductPage> {
                           ),
                         )
                         .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _kategoriTerpilih = value);
-                  }
+                onChanged: (val) {
+                  if (val != null) setState(() => _kategoriTerpilih = val);
                 },
-                decoration: const InputDecoration(labelText: 'Kategori'),
               ),
               const SizedBox(height: 24),
               _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                    onPressed: _konfirmasiUpdate,
-                    child: const Text('Simpan Perubahan'),
+                  ? const CircularProgressIndicator()
+                  : SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _updateProduct,
+                      icon: const Icon(Icons.save),
+                      label: const Text('Simpan Perubahan'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: Colors.blue[900],
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        textStyle: const TextStyle(fontSize: 16),
+                      ),
+                    ),
                   ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      validator:
+          validator ??
+          (value) =>
+              value == null || value.isEmpty
+                  ? '$label tidak boleh kosong'
+                  : null,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: Colors.white,
       ),
     );
   }

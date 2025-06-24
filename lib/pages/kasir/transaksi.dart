@@ -1,69 +1,66 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
 import 'add_transaksi.dart';
 
 class TransaksiPage extends StatelessWidget {
-  const TransaksiPage({super.key});
+  final DateTime tanggal;
+
+  const TransaksiPage({super.key, required this.tanggal});
 
   void _deleteTransaksi(
-    String docId,
-    String idProduct,
-    int jumlahProduct,
-    BuildContext context,
-  ) {
-    showDialog(
+      String docId, int jumlah, String idProduk, BuildContext context) async {
+    final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Konfirmasi Hapus'),
         content: const Text('Yakin ingin menghapus transaksi ini?\nStok akan dikembalikan.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Batal'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.pop(context);
-              final transaksiRef =
-                  FirebaseFirestore.instance.collection('transactions').doc(docId);
-              final produkRef =
-                  FirebaseFirestore.instance.collection('products').doc(idProduct);
-
-              try {
-                await FirebaseFirestore.instance.runTransaction((transaction) async {
-                  final produkSnapshot = await transaction.get(produkRef);
-                  final currentStok =
-                      (produkSnapshot.data()?['stok_product'] ?? 0) as int;
-
-                  transaction.update(produkRef, {
-                    'stok_product': currentStok + jumlahProduct,
-                  });
-
-                  transaction.delete(transaksiRef);
-                });
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Transaksi dihapus dan stok dikembalikan')),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Gagal menghapus: $e')),
-                );
-              }
-            },
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Ya, Hapus'),
           ),
         ],
       ),
     );
+
+    if (confirm != true) return;
+
+    try {
+      final productRef = FirebaseFirestore.instance.collection('products').doc(idProduk);
+      final productSnap = await productRef.get();
+      final stokLama = (productSnap.data()?['stok_product'] ?? 0) as int;
+
+      await productRef.update({'stok_product': stokLama + jumlah});
+      await FirebaseFirestore.instance.collection('transactions').doc(docId).delete();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Transaksi dihapus dan stok dikembalikan')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal hapus: $e')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final startOfDay = DateTime(tanggal.year, tanggal.month, tanggal.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
     return Scaffold(
+      backgroundColor: const Color(0xFFF2F4F8),
       appBar: AppBar(
-        title: const Text('Daftar Transaksi'),
+        title: Text('Transaksi: ${DateFormat('dd MMM yyyy').format(tanggal)}'),
+        backgroundColor: Colors.blue[300],
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
@@ -79,6 +76,8 @@ class TransaksiPage extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('transactions')
+            .where('waktu_transaksi', isGreaterThanOrEqualTo: startOfDay)
+            .where('waktu_transaksi', isLessThan: endOfDay)
             .orderBy('waktu_transaksi', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
@@ -90,38 +89,82 @@ class TransaksiPage extends StatelessWidget {
           final transaksiList = snapshot.data!.docs;
 
           if (transaksiList.isEmpty) {
-            return const Center(child: Text('Belum ada transaksi'));
+            return const Center(
+              child: Text(
+                'Belum ada transaksi pada tanggal ini.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.black54),
+              ),
+            );
           }
 
           return ListView.builder(
+            padding: const EdgeInsets.all(16),
             itemCount: transaksiList.length,
             itemBuilder: (context, index) {
               final doc = transaksiList[index];
               final data = doc.data() as Map<String, dynamic>;
 
-              final idTransaksi = doc.id;
-              final idProduct = data['id_product'] ?? '';
-              final jumlahProduct = data['jumlah_product'] ?? 0;
-
               return FutureBuilder<DocumentSnapshot>(
                 future: FirebaseFirestore.instance
                     .collection('products')
-                    .doc(idProduct)
+                    .doc(data['id_product'])
                     .get(),
                 builder: (context, productSnapshot) {
+                  if (productSnapshot.connectionState == ConnectionState.waiting) {
+                    return const SizedBox();
+                  }
+
                   final productData =
                       productSnapshot.data?.data() as Map<String, dynamic>?;
 
-                  return ListTile(
-                    leading: const Icon(Icons.receipt),
-                    title: Text(productData?['nama_product'] ?? 'Produk Tidak Ditemukan'),
-                    subtitle: Text(
-                      'Jumlah: $jumlahProduct | Total: Rp ${data['total_harga']}',
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () =>
-                          _deleteTransaksi(idTransaksi, idProduct, jumlahProduct, context),
+                  final namaProduk = productData?['nama_product'] ?? 'Produk tidak ditemukan';
+                  final harga = productData?['harga_product'] ?? 0;
+                  final jumlah = data['jumlah_product'] ?? 0;
+                  final total = data['total_harga'] ?? 0;
+                  final waktu = (data['waktu_transaksi'] as Timestamp?)?.toDate();
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    elevation: 3,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.receipt_long, size: 40, color: Colors.deepPurple),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  namaProduk,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text('Harga: Rp $harga'),
+                                Text('Jumlah: $jumlah'),
+                                Text('Total: Rp $total'),
+                                if (waktu != null)
+                                  Text(
+                                    'Waktu: ${DateFormat('HH:mm:ss').format(waktu)}',
+                                    style: const TextStyle(color: Colors.black54, fontSize: 12),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () =>
+                                _deleteTransaksi(doc.id, jumlah, data['id_product'], context),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },
