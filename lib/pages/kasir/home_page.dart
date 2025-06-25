@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../login_page.dart';
 import 'product.dart';
-import 'transaksi.dart'; // ⬅️ pastikan TransaksiPage menerima parameter tanggal
+import 'transaksi.dart';
 
 class KasirHomePage extends StatefulWidget {
   const KasirHomePage({super.key});
@@ -139,7 +139,6 @@ class _KasirHomePageState extends State<KasirHomePage> {
             ),
             const SizedBox(height: 40),
 
-            // Tombol Produk
             ElevatedButton(
               onPressed: () => _openProductPage(context),
               style: ElevatedButton.styleFrom(
@@ -180,7 +179,6 @@ class _KasirHomePageState extends State<KasirHomePage> {
 
             const SizedBox(height: 32),
 
-            // Tombol Transaksi
             ElevatedButton(
               onPressed: () => _openTransaksiPageWithTanggal(context),
               style: ElevatedButton.styleFrom(

@@ -141,7 +141,6 @@ class _AdminHomePageState extends State<AdminHomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 👋 Welcome
             Text(
               "👋 Selamat datang, $_namaLengkap!",
               style: GoogleFonts.poppins(
@@ -156,7 +155,6 @@ class _AdminHomePageState extends State<AdminHomePage> {
             ),
             const SizedBox(height: 24),
 
-            // 📋 Tabel user
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance

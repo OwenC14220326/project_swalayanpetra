@@ -143,7 +143,6 @@ class _AddTransaksiPageState extends State<AddTransaksiPage> {
               ),
               const SizedBox(height: 8),
 
-              // 🔍 Input Search
               TextFormField(
                 controller: _searchController,
                 decoration: InputDecoration(

@@ -90,7 +90,6 @@ class _ProductManagementPageState extends State<ProductManagementPage> {
       ),
       body: Column(
         children: [
-          // 🔍 Search Bar
           Padding(
             padding: const EdgeInsets.all(16),
             child: TextField(
@@ -110,7 +109,6 @@ class _ProductManagementPageState extends State<ProductManagementPage> {
             ),
           ),
 
-          // 📦 Daftar Produk
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance

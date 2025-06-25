@@ -107,7 +107,6 @@ class _UserHomePageState extends State<UserHomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Welcome Header
             Text(
               "👋 Selamat datang, $_namaLengkap!",
               style: GoogleFonts.poppins(
@@ -122,7 +121,6 @@ class _UserHomePageState extends State<UserHomePage> {
             ),
             const SizedBox(height: 20),
 
-            // Search
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -141,7 +139,6 @@ class _UserHomePageState extends State<UserHomePage> {
             ),
             const SizedBox(height: 16),
 
-            // Produk Grid
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: _getProductStream(),
